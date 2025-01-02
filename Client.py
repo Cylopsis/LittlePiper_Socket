@@ -31,6 +31,11 @@ class Client:
         while self.Running:
             try:
                 message = input("请输入消息（输入exit退出，两次回车表示输入消息结束）：\n")
+
+                if message.strip().lower().startswith('_file '):
+                    filename = message.strip()[6:].strip()
+                    self.sendMessageFromFile(filename)
+                    continue
                 if message.strip().lower() == 'exit':
                     if self.Running:
                         lg.warning("关闭与服务器的连接喵")
@@ -64,7 +69,18 @@ class Client:
             except Exception as e:
                 self.Running = False
                 break
-
+    def sendMessageFromFile(self, filename: str):
+        try:
+            with open(filename, 'rb') as file:
+                message = file.read().strip()
+                if message:
+                    self.socketClient.sendall(message)
+                else:
+                    lg.warning(f"文件 {filename} 是空的喵")
+        except FileNotFoundError:
+            lg.error(f"文件 {filename} 未找到喵")
+        except Exception as e:
+            lg.error(f"读取文件 {filename} 时发生错误喵: {e}")
     def shutdown(self):
         try:
             self.socketClient.close()
