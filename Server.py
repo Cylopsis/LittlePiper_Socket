@@ -78,23 +78,23 @@ class Server():
         self.LittlePiper = MyLittlePiper
         self.communicating:socket.socket = None
         self.socketServer = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        
+        # ------------------------------------------------------------------------ #
         try:
             self.socketServer.bind((self.localHost, self.port))
         except Exception as e:
-            lg.error(f'端口号：{self.port} 已经被占用，请更换端口号. 错误信息: {e}')
+            lg.error(f'端口号：{self.port} 已经被占用，请更换端口号喵.')
             sys.exit(1)
-        
+        # ------------------------------------------------------------------------ #
         self.socketServer.listen(Server.MAX_CONN)
-        lg.success(f"服务端已在本机启动，局域网IPv4地址: {Logger.magenta(self.localHost)}，端口: {Logger.green(self.port)}")
-        lg.info(f"正在等待客户端连接...")
+        lg.success(f"服务端已在本机启动喵，局域网IPv4地址: {Logger.magenta(self.localHost)}，端口: {Logger.green(self.port)}")
+        lg.info(f"正在等待客户端连接喵...")
         self.Running = True
-        
+        # ------------------------------------------------------------------------ #
         self.lt = threading.Thread(target=self.listen, daemon=True)
         self.lt.start()
-
+        # ------------------------------------------------------------------------ #
         self.instruct()
-
+    # ---------------------------------------------------------------------------- #
     def instruct(self):
         while self.Running:
             cmd = input().split()
@@ -114,7 +114,7 @@ class Server():
 
     def ls(self):
         if not self.connList:
-            lg.info('没有客户端连接.')
+            lg.info('没有客户端连接喵.')
         else:
             lg.info('当前连接列表：')
             for i, conn in enumerate(self.connList):
@@ -123,28 +123,28 @@ class Server():
     def setCurComm(self, cmd):
         try:
             self.communicating = self.connList[int(cmd[1])]
-            lg.info(f'设置为与客户端 {self.communicating.getsockname()} 的对话连接')
+            lg.info(f'设置为与客户端 {self.communicating.getsockname()} 的对话连接喵')
         except IndexError:
-            lg.error('无效的客户端号码.')
+            lg.error('无效的客户端号码喵.')
         except Exception as e:
-            lg.error(f'设置通信时发生错误: {e}')
+            lg.error(f'设置通信时发生错误喵: {e}')
 
     def sendFile(self, cmd):
         if len(cmd) < 2:
-            lg.error('需要提供文件路径.')
+            lg.error('需要提供文件路径喵.')
             return
         try:
             with open(cmd[1], 'rb') as f:
                 data = f.read()
                 if self.communicating:
                     self.communicating.send(data)
-                    lg.info(f'文件 {cmd[1]} 已发送.')
+                    lg.info(f'文件 {cmd[1]} 已发送喵.')
                 else:
-                    lg.error('没有设置对话客户端.')
+                    lg.error('没有设置对话客户端喵.')
         except FileNotFoundError:
-            lg.error(f'文件 {cmd[1]} 不存在.')
+            lg.error(f'文件 {cmd[1]} 不存在喵.')
         except Exception as e:
-            lg.error(f'文件发送时发生错误: {e}')
+            lg.error(f'文件发送时发生错误喵: {e}')
 
     def shutdown(self):
         self.Running = False
@@ -153,21 +153,21 @@ class Server():
                 conn.send('shutdown'.encode())
                 conn.close()
             except Exception as e:
-                lg.error(f"关闭连接时发生错误: {e}")
+                lg.error(f"关闭连接时发生错误喵: {e}")
         for conn in self.connThreads:
             conn.join()
         lg.success("服务端已关闭.")
         sys.exit(0)
-
+    # ------------------------------------------------------------------------ #
     def sendMessage(self, msg):
         if self.communicating:
             try:
                 self.communicating.send(' '.join(msg).encode())
             except Exception as e:
-                lg.error(f"发送消息时发生错误: {e}")
+                lg.error(f"发送消息时发生错误喵: {e}")
         else:
-            lg.error('没有设置对话客户端号码.')
-
+            lg.error('没有设置对话客户端号码喵.')
+    # ------------------------------------------------------------------------ #
     def listen(self):
         num = 0
         while self.Running:
@@ -175,28 +175,28 @@ class Server():
                 conn, address = self.socketServer.accept()
                 with self.lock:
                     Server.connList.append(conn)
-                lg.success(f"已接受到客户端 {num:02d} 号 的连接请求，客户端信息：{address}")
+                lg.success(f"已接受到客户端 {num:02d} 号 的连接请求喵，客户端信息：{address}")
                 clientHandler = threading.Thread(target=self.handleClient, args=(conn, address, num),daemon=True)
                 self.connThreads.append(clientHandler)
                 clientHandler.start()
                 num += 1
             except Exception as e:
-                lg.error(f"接收客户端连接时发生错误: {e}")
-    
+                lg.error(f"接收客户端连接时发生错误喵: {e}")
+    # ------------------------------------------------------------------------ #
     def handleClient(self, conn: socket.socket, address, num):
         while self.Running:
             try:
                 clientMsg: str = conn.recv(20480).decode("UTF-8").strip()
                 if not clientMsg: continue
             except ConnectionAbortedError:
-                lg.warning(f'关闭与客户端 {address} 的连接.')
+                lg.warning(f'关闭与客户端 {address} 的连接喵.')
                 break
             except Exception as e:
                 lg.warning(f'与客户端 {address} 的连接已意外关闭喵. 错误信息: {e}')
                 break
 
             if clientMsg == 'exit':
-                lg.success(f'客户端 {address} 已关闭连接.')
+                lg.success(f'客户端 {address} 已关闭连接喵.')
                 break
 
             lg.info(f"客户端 {num} 号:{address} 发来的消息：{clientMsg}")
@@ -207,12 +207,12 @@ class Server():
             with self.lock: Server.connList.remove(conn)
             conn.close()
         except Exception as e:
-            lg.error(f"关闭连接时发生错误: {e}")
-
+            lg.error(f"关闭连接时发生错误喵: {e}")
+# ---------------------------------------------------------------------------- #
 if __name__ == '__main__':
     if len(sys.argv) > 1:
         port = int(sys.argv[1])
     else:
-        lg.info('未传入启动端口号，使用默认端口21491')
+        lg.info('未传入启动端口号，使用默认端口21491喵')
         port = 21491
     Server(port)
