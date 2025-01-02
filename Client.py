@@ -11,6 +11,8 @@ class Client:
         self.host = host
         self.port = port
         self.Running = True
+        self.delimiter = b'\n\n'
+        self.buffer = []
         # ------------------------------------------------------------------------ #
         try:
             self.socketClient = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -31,24 +33,22 @@ class Client:
         lg.info("请输入消息（输入exit退出，两次回车表示输入消息结束）：")
         while self.Running:
             try:
-                message = input()
-                if message.strip().lower() == 'exit':
+                message = input().strip()
+                if message.lower() == 'exit':
                     if self.Running:
                         lg.warning("关闭与服务器的连接喵")
-                        self.socketClient.sendall(message.encode("UTF-8"))
+                        self.socketClient.sendall(message.encode("UTF-8")+self.delimiter)
                         self.Running = False
                     break
-                elif message.strip().lower().startswith('_file '):
-                    filename = message.strip()[6:].strip()
-                    self.sendMessageFromFile(filename)
+                elif message.lower().startswith('_file '):
+                    self.sendFile(message.split())
                     continue
-                else:
-                    while True:
-                        addition = input().strip()
-                        if not addition: break
-                        message += '\n' + addition
+                while True:
+                    addition = input()
+                    if not addition: break
+                    message += '\n' + addition
 
-                    self.socketClient.sendall(message.encode("UTF-8"))
+                self.socketClient.sendall(message.encode("UTF-8")+self.delimiter)
             except (KeyboardInterrupt, EOFError):
                 lg.warning("中断输入，准备关闭连接喵")
                 self.Running = False
@@ -56,32 +56,40 @@ class Client:
             except Exception as e:
                 lg.error(f"发送消息时发生错误喵: {e}")
                 break
+    def sendFile(self, cmd):
+        if len(cmd) < 2:
+            lg.error('需要提供文件路径喵.')
+            return
+        try:
+            with open(cmd[1], 'rb') as f:
+                data = f.read()
+                self.socketClient.send(data+self.delimiter)
+                lg.info(f'文件 {cmd[1]} 已发送喵.')
+        except FileNotFoundError:
+            lg.error(f'文件 {cmd[1]} 不存在喵.')
+        except Exception as e:
+            lg.error(f'文件发送时发生错误喵: {e}')
     # ---------------------------------------------------------------------------- #
     def recvMessage(self):
         while self.Running:
             try:
-                response = self.socketClient.recv(20480).decode("UTF-8")
-                if response and response.strip().lower() == 'shutdown':
+                self.recv(self.socketClient)
+                if self.buffer and self.buffer[0].strip().lower() == 'shutdown':
                     lg.warning("服务端关闭了所有连接喵")
                     self.Running = False
-                elif response:
-                    lg.success(f"收到服务端的消息喵：{response}")
+                elif self.buffer:
+                    self.show()
             except Exception as e:
                 self.Running = False
                 break
-    # ---------------------------------------------------------------------------- #
-    def sendMessageFromFile(self, filename: str):
-        try:
-            with open(filename, 'rb') as file:
-                message = file.read().strip()
-                if message:
-                    self.socketClient.sendall(message)
-                else:
-                    lg.warning(f"文件 {filename} 是空的喵")
-        except FileNotFoundError:
-            lg.error(f"文件 {filename} 未找到喵")
-        except Exception as e:
-            lg.error(f"读取文件 {filename} 时发生错误喵: {e}")
+    def recv(self,conn:socket.socket)->bytes:
+        while self.Running:
+            chunk = conn.recv(1024)
+            if not chunk: raise Exception('连接已关闭')
+            self.buffer.append(chunk)
+            if chunk.endswith(self.delimiter): break
+    def show(self):
+        lg.success(f"收到客户端的消息喵：{(b''.join([msg for msg in self.buffer]).decode().rstrip())}")
     # ---------------------------------------------------------------------------- #
     def shutdown(self):
         try:

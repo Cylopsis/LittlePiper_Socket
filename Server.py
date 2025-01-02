@@ -78,6 +78,8 @@ class Server():
         self.LittlePiper = MyLittlePiper
         self.communicating:socket.socket = None
         self.socketServer = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.delimiter = b'\n\n'
+        self.buffer = []
         # ------------------------------------------------------------------------ #
         try:
             self.socketServer.bind((self.localHost, self.port))
@@ -123,7 +125,7 @@ class Server():
     def setCurComm(self, cmd):
         try:
             self.communicating = self.connList[int(cmd[1])]
-            lg.info(f'设置为与客户端 {self.communicating.getsockname()} 的对话连接喵')
+            lg.info(f'设置为与客户端 {self.communicating.getpeername()} 的对话连接喵')
         except IndexError:
             lg.error('无效的客户端号码喵.')
         except Exception as e:
@@ -137,7 +139,7 @@ class Server():
             with open(cmd[1], 'rb') as f:
                 data = f.read()
                 if self.communicating:
-                    self.communicating.send(data)
+                    self.communicating.send(data+self.delimiter)
                     lg.info(f'文件 {cmd[1]} 已发送喵.')
                 else:
                     lg.error('没有设置对话客户端喵.')
@@ -162,7 +164,7 @@ class Server():
     def sendMessage(self, msg):
         if self.communicating:
             try:
-                self.communicating.send(' '.join(msg).encode())
+                self.communicating.send(' '.join(msg).encode()+self.delimiter)
             except Exception as e:
                 lg.error(f"发送消息时发生错误喵: {e}")
         else:
@@ -183,11 +185,10 @@ class Server():
             except Exception as e:
                 lg.error(f"接收客户端连接时发生错误喵: {e}")
     # ------------------------------------------------------------------------ #
-    def handleClient(self, conn: socket.socket, address, num):
+    def handleClient(self, conn: socket.socket, address):
         while self.Running:
             try:
-                clientMsg: str = conn.recv(20480).decode("UTF-8").strip()
-                if not clientMsg: continue
+                self.recv(conn)
             except ConnectionAbortedError:
                 lg.warning(f'关闭与客户端 {address} 的连接喵.')
                 break
@@ -195,19 +196,31 @@ class Server():
                 lg.warning(f'与客户端 {address} 的连接已意外关闭喵. 错误信息: {e}')
                 break
 
-            if clientMsg == 'exit':
+            if self.buffer and self.buffer[0].strip().lower() == 'exit':
                 lg.success(f'客户端 {address} 已关闭连接喵.')
                 break
 
-            lg.info(f"客户端 {num} 号:{address} 发来的消息：{clientMsg}")
-            if clientMsg.startswith('@小派普'):
-                msg = self.LittlePiper.get_response(clientMsg)
-                conn.send(msg.encode("UTF-8"))
+            self.show()
+            if self.buffMessage.startswith('@小派普'):
+                msg = self.LittlePiper.get_response(self.buffMessage)
+                conn.send(msg.encode("UTF-8")+self.delimiter)
+            self.buffer.clear()
         try:
             with self.lock: Server.connList.remove(conn)
             conn.close()
         except Exception as e:
             lg.error(f"关闭连接时发生错误喵: {e}")
+    def recv(self,conn:socket.socket):
+        while self.Running:
+            chunk = conn.recv(1024)
+            if not chunk:
+                raise Exception('连接已关闭')
+            self.buffer.append(chunk)
+            if chunk.endswith(self.delimiter): break
+    def show(self):
+        self.buffMessage = (b''.join([msg for msg in self.buffer])).decode().rstrip()
+        lg.success(f"收到客户端的消息喵：{self.buffMessage}")
+        
 # ---------------------------------------------------------------------------- #
 if __name__ == '__main__':
     if len(sys.argv) > 1:
