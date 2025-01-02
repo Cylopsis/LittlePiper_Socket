@@ -1,6 +1,7 @@
 import requests
 import orjson as json
-from LittlePiperDebugUtils import log as lg
+from log import Logger
+lg = Logger(Logger.INFO)
 class AssistTools:
     TOOL_CALL = 3
     def __init__(self):    
@@ -27,7 +28,7 @@ class AssistTools:
     def run(self,funcName:str,funcArgs:dict,callID):
         match funcName:
             case 'search_weather':
-                key = ''
+                key = 'e18c7f8b6f69c4852736689cda92cb0f'
                 url = f'https://restapi.amap.com/v3/weather/weatherInfo'
                 param = {
                     'city':funcArgs["city"],
